@@ -128,8 +128,11 @@
                 </div>
 
                 <!-- Question -->
-                <div class="mb-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl min-h-[8rem] flex items-center justify-center" :key="currentQuestionIndex">
-                    <p class="text-xl md:text-2xl font-medium text-center text-gray-900 dark:text-white" x-text="currentQuestion.question"></p>
+                <div class="mb-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl min-h-[8rem] flex flex-col items-center justify-center text-center" :key="currentQuestionIndex">
+                    <p class="text-xl md:text-2xl font-medium text-gray-900 dark:text-white" x-text="currentQuestion.question"></p>
+                    <template x-if="currentQuestion.image">
+                        <img :src="currentQuestion.image" alt="题目图片" class="mt-4 rounded-lg mx-auto max-h-64 object-contain">
+                    </template>
                 </div>
                 
                 <!-- Options -->
@@ -183,6 +186,9 @@
                                 <span class="mr-3 text-gray-500 dark:text-gray-400" x-text="(index + 1) + '.'"></span>
                                 <span class="flex-1 text-gray-800 dark:text-gray-200" x-text="question.question"></span>
                             </p>
+                            <template x-if="question.image">
+                                <img :src="question.image" alt="题目图片" class="my-2 rounded-lg ml-6 max-h-48 object-contain">
+                            </template>
                             <div class="space-y-3 pl-6">
                                 <template x-for="(text, key) in question.options" :key="key">
                                     <div :class="getReviewOptionClass(question, userAnswers[index], key)" class="p-3 rounded-lg text-base flex justify-between items-center transition-all">
@@ -240,6 +246,9 @@
                                <span x-text="index + 1 + '. '"></span>
                                <span x-text="question.question"></span>
                             </p>
+                            <template x-if="question.image">
+                                <img :src="question.image" alt="题目图片" class="my-2 rounded-lg ml-5 max-h-48 object-contain">
+                            </template>
                             <div class="pl-5">
                                 <p class="text-green-600 dark:text-green-400 font-bold" x-text="`✅ 正确答案: ${question.answer}`"></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-text="`题目ID: ${question.id}`"></p>
