@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>体育与健康知识问答</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.13.10/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        [x-cloak] { display: none !important; }
+        .option-button {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .view-container {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center">
+
+    <div x-data="quiz()" x-cloak class="max-w-4xl w-full mx-auto p-4 md:p-8">
+        
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-10">
+
+            <!-- Start Screen -->
+            <div x-show="currentView === 'start'" class="text-center view-container">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">体育与健康知识问答</h1>
+                <p class="text-gray-600 dark:text-gray-300 mb-8">选择答题模式，开始你的挑战！</p>
+                <div class="flex flex-col items-center space-y-8">
+                    <div class="flex items-center space-x-3">
+                        <label for="questionCount" class="text-sm font-medium text-gray-700 dark:text-gray-300">题目数量:</label>
+                        <input type="number" id="questionCount" x-model.number="totalQuestions" min="1" :max="quizData.length" class="w-24 text-center bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                        <button @click="totalQuestions = quizData.length" class="text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-semibold py-2.5 px-4 rounded-lg transition-colors">
+                            全部
+                        </button>
+                    </div>
+                    <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                        <button @click="startQuiz('practice')" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                            <span class="block">🚀 练习模式</span>
+                            <span class="block text-sm font-normal opacity-90">答完即现答案</span>
+                        </button>
+                        <button @click="startQuiz('exam')" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                            <span class="block">🏆 考试模式</span>
+                            <span class="block text-sm font-normal opacity-90">全部完成后计分</span>
+                        </button>
+                    </div>
+                     <div class="border-t border-gray-200 dark:border-gray-700 w-full my-6"></div>
+                    <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                         <button @click="showHistory()" class="w-full md:w-auto bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                            📜 答题记录
+                        </button>
+                        <button @click="showWrongAnswers()" class="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                            🧠 我的错题本
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div x-show="currentView === 'quiz'" class="view-container">
+                <!-- Progress Bar and Counter -->
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                        题目 <span x-text="currentQuestionIndex + 1"></span> / <span x-text="questions.length"></span>
+                    </h2>
+                    <div class="w-full mx-4 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div class="bg-blue-600 h-2.5 rounded-full" :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"></div>
+                    </div>
+                </div>
+
+                <!-- Question -->
+                <div class="mb-6 min-h-[6rem]" :key="currentQuestionIndex" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-x-8" x-transition:enter-end="opacity-100 translate-x-0">
+                    <p class="text-xl md:text-2xl font-medium text-gray-900 dark:text-white" x-text="currentQuestion.question"></p>
+                </div>
+                
+                <!-- Options -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="(text, key) in currentQuestion.options" :key="key">
+                        <button 
+                            @click="selectAnswer(key)"
+                            :class="getOptionClass(key)"
+                            class="option-button w-full p-4 rounded-lg border-2 dark:border-gray-600 text-left font-semibold text-lg"
+                            :disabled="quizMode === 'practice' && userAnswers[currentQuestionIndex] !== null">
+                            <span class="mr-2" x-text="key + '. '"></span>
+                            <span x-text="text"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Navigation -->
+                <div class="mt-8 flex justify-between items-center">
+                    <button @click="prevQuestion()" :disabled="currentQuestionIndex === 0" class="bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        上一题
+                    </button>
+                    <template x-if="currentQuestionIndex < questions.length - 1">
+                        <button @click="nextQuestion()" :disabled="quizMode === 'practice' && userAnswers[currentQuestionIndex] === null" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            下一题
+                        </button>
+                    </template>
+                    <template x-if="currentQuestionIndex === questions.length - 1">
+                         <button @click="finishQuiz()" :disabled="quizMode === 'practice' && userAnswers[currentQuestionIndex] === null" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            提交
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div x-show="currentView === 'results'" class="text-center view-container">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">答题结束!</h2>
+                <p class="text-2xl text-gray-700 dark:text-gray-300 mb-6">
+                    你的得分是: <span class="font-bold text-blue-600 dark:text-blue-400 text-4xl" x-text="score"></span> / <span x-text="questions.length"></span>
+                </p>
+
+                <div class="text-left space-y-6 max-h-[50vh] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <template x-for="(question, index) in questions" :key="index">
+                        <div class="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-b-0">
+                             <p class="font-semibold text-lg mb-3 flex items-start">
+                                <span class="mr-2 text-gray-500 dark:text-gray-400" x-text="(index + 1) + '.'"></span>
+                                <span class="flex-1 text-gray-800 dark:text-gray-200" x-text="question.question"></span>
+                            </p>
+                            <div class="space-y-2 pl-6">
+                                <template x-for="(text, key) in question.options" :key="key">
+                                    <div :class="getReviewOptionClass(question, userAnswers[index], key)" class="p-3 rounded-md text-base flex justify-between items-center">
+                                        <span x-text="key + '. ' + text"></span>
+                                        <span class="text-xl">
+                                            <span x-if="key === question.answer">✅</span>
+                                            <span x-if="key === userAnswers[index] && key !== question.answer">❌</span>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <button @click="restartQuiz()" class="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                    返回主页
+                </button>
+            </div>
+
+             <!-- History Screen -->
+            <div x-show="currentView === 'history'" class="view-container">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">答题记录</h2>
+                <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+                    <template x-if="history.length === 0">
+                        <p class="text-center text-gray-500 dark:text-gray-400">暂无答题记录。</p>
+                    </template>
+                    <template x-for="session in history" :key="session.id">
+                        <div class="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold text-gray-800 dark:text-gray-200" x-text="new Date(session.date).toLocaleString()"></p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400" x-text="`模式: ${session.mode === 'practice' ? '练习' : '考试'}`"></p>
+                            </div>
+                            <div class="text-lg font-bold" :class="session.score / session.total > 0.8 ? 'text-green-500' : 'text-yellow-500'">
+                                <span x-text="session.score"></span> / <span x-text="session.total"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <button @click="showStartScreen()" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">
+                    返回主页
+                </button>
+            </div>
+
+            <!-- Wrong Answers Screen -->
+            <div x-show="currentView === 'wrong'" class="view-container">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">我的错题本</h2>
+                <div class="space-y-4 max-h-[60vh] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                     <template x-if="Object.keys(wrongAnswers).length === 0">
+                        <p class="text-center text-gray-500 dark:text-gray-400">你还没有错题，真棒！</p>
+                    </template>
+                    <template x-for="question in Object.values(wrongAnswers)" :key="question.id">
+                       <div class="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-b-0">
+                            <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2" x-text="question.question"></p>
+                            <p class="text-green-600 dark:text-green-400 font-bold" x-text="`正确答案: ${question.answer}`"></p>
+                        </div>
+                    </template>
+                </div>
+                <div class="mt-8 flex flex-col md:flex-row gap-4">
+                    <button @click="startWrongAnswerQuiz()" :disabled="Object.keys(wrongAnswers).length === 0" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50">
+                        练习所有错题
+                    </button>
+                     <button @click="clearWrongAnswers()" :disabled="Object.keys(wrongAnswers).length === 0" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50">
+                        清空错题本
+                    </button>
+                    <button @click="showStartScreen()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">
+                        返回主页
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+function quiz() {
+    return {
+        quizData,
+        questions: [],
+        userAnswers: [],
+        currentQuestionIndex: 0,
+        currentView: 'start', // start, quiz, results, history, wrong
+        totalQuestions: 10,
+        score: 0,
+        quizMode: 'practice', // 'practice' or 'exam'
+        history: [],
+        wrongAnswers: {},
+
+        init() {
+            this.history = JSON.parse(localStorage.getItem('quizHistory')) || [];
+            this.wrongAnswers = JSON.parse(localStorage.getItem('wrongAnswers')) || {};
+            // 确保 quizData 已加载
+            if (typeof quizData === 'undefined') {
+                console.error("题库 (quizData) 未找到！");
+                this.quizData = [];
+            }
+        },
+
+        get currentQuestion() {
+            return this.questions[this.currentQuestionIndex];
+        },
+
+        startQuiz(mode, questionSet = null) {
+            this.quizMode = mode;
+            const source = questionSet || this.quizData;
+
+            if (!questionSet) {
+                if(this.totalQuestions > source.length) this.totalQuestions = source.length;
+                if(this.totalQuestions < 1) this.totalQuestions = 1;
+                this.questions = [...source].sort(() => 0.5 - Math.random()).slice(0, this.totalQuestions);
+            } else {
+                 this.questions = [...source].sort(() => 0.5 - Math.random());
+            }
+
+            this.userAnswers = Array(this.questions.length).fill(null);
+            this.currentQuestionIndex = 0;
+            this.score = 0;
+            this.currentView = 'quiz';
+        },
+        
+        startWrongAnswerQuiz() {
+            const wrongQuestions = Object.values(this.wrongAnswers);
+            if (wrongQuestions.length > 0) {
+                this.startQuiz('practice', wrongQuestions);
+            }
+        },
+
+        selectAnswer(optionKey) {
+            if (this.quizMode === 'practice' && this.userAnswers[this.currentQuestionIndex] !== null) {
+                return;
+            }
+            this.userAnswers[this.currentQuestionIndex] = optionKey;
+        },
+
+        nextQuestion() {
+            if (this.currentQuestionIndex < this.questions.length - 1) {
+                this.currentQuestionIndex++;
+            }
+        },
+        
+        prevQuestion() {
+             if (this.currentQuestionIndex > 0) {
+                this.currentQuestionIndex--;
+            }
+        },
+
+        finishQuiz() {
+            // Calculate score
+            this.score = this.userAnswers.reduce((score, answer, index) => {
+                return score + (answer === this.questions[index].answer ? 1 : 0);
+            }, 0);
+            
+            // Save history and wrong answers
+            this.updateHistory();
+            this.updateWrongAnswers();
+
+            this.currentView = 'results';
+        },
+
+        updateHistory() {
+            const session = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                score: this.score,
+                total: this.questions.length,
+                mode: this.quizMode,
+                // Optional: you can store questions and answers for a detailed review later
+                // questions: this.questions, 
+                // userAnswers: this.userAnswers 
+            };
+            this.history.unshift(session);
+            if (this.history.length > 20) this.history.pop(); // Keep last 20 records
+            localStorage.setItem('quizHistory', JSON.stringify(this.history));
+        },
+
+        updateWrongAnswers() {
+            this.userAnswers.forEach((answer, index) => {
+                const question = this.questions[index];
+                if (answer !== question.answer) {
+                    // Using question.id ensures uniqueness
+                    this.wrongAnswers[question.id] = question;
+                } else {
+                    // If a previously wrong answer is now correct, remove it from the list
+                    if (this.wrongAnswers[question.id]) {
+                        delete this.wrongAnswers[question.id];
+                    }
+                }
+            });
+            localStorage.setItem('wrongAnswers', JSON.stringify(this.wrongAnswers));
+        },
+
+        restartQuiz() {
+             this.currentView = 'start';
+             this.totalQuestions = 10;
+        },
+        
+        showStartScreen() {
+            this.currentView = 'start';
+        },
+        showHistory() {
+            this.currentView = 'history';
+        },
+        showWrongAnswers() {
+            this.currentView = 'wrong';
+        },
+
+        clearWrongAnswers() {
+            if (confirm('确定要清空所有错题记录吗？')) {
+                this.wrongAnswers = {};
+                localStorage.removeItem('wrongAnswers');
+            }
+        },
+
+        getOptionClass(optionKey) {
+            const userAnswer = this.userAnswers[this.currentQuestionIndex];
+            const isSelected = optionKey === userAnswer;
+
+            // Exam mode: only show selection, not correctness
+            if (this.quizMode === 'exam') {
+                if (isSelected) {
+                    return 'bg-blue-200 dark:bg-blue-900 border-blue-500 dark:border-blue-600';
+                }
+                return 'bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border-gray-300 dark:border-gray-500';
+            }
+
+            // Practice mode (original logic)
+            if (userAnswer === null) {
+                return 'bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border-gray-300 dark:border-gray-500';
+            }
+            
+            const isCorrect = optionKey === this.currentQuestion.answer;
+
+            if (isCorrect) return 'bg-green-200 dark:bg-green-800 border-green-500 dark:border-green-600 text-green-800 dark:text-green-200';
+            if (isSelected && !isCorrect) return 'bg-red-200 dark:bg-red-800 border-red-500 dark:border-red-600 text-red-800 dark:text-red-200';
+            
+            return 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed';
+        },
+        
+        getReviewOptionClass(question, userAnswer, optionKey) {
+            const isCorrectAnswer = optionKey === question.answer;
+            const isUserSelection = optionKey === userAnswer;
+
+            if (isCorrectAnswer) {
+                return 'bg-green-100 dark:bg-green-900/50 text-gray-800 dark:text-gray-200 border-l-4 border-green-500';
+            }
+            if (isUserSelection && !isCorrectAnswer) {
+                return 'bg-red-100 dark:bg-red-900/50 text-gray-800 dark:text-gray-200 border-l-4 border-red-500';
+            }
+            return 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400';
+            return 'bg-gray-50 dark:bg-gray-800';
+        }
+    };
+}
+
+
+const quizData = [
+{
+    "id": 1,
+    "question": "七年级体育与健康一书中，低'消费'却能获得'高营养'的运动是指（ ）运动",
+    "options": { "A": "篮球", "B": "足球", "C": "田径", "D": "羽毛球" },
+    "answer": "C"
+  },
+  {
+    "id": 2,
+    "question": "（）是健康教育发展的新阶段",
+    "options": { "A": "心理健康", "B": "提高全民健康意识", "C": "全民健康", "D": "健康促进" },
+    "answer": "D"
+  },
+  {
+    "id": 3,
+    "question": "正常人的心率范围是（    ）。",
+    "options": { "A": "60-100次/分", "B": "60-90次/分", "C": "50-90次/分", "D": "50-100 次/分" },
+    "answer": "A"
+  },
+  {
+    "id": 4,
+    "question": "在进行大强度练习时需要安排间歇时间，一般每次练习后，心率恢复到（  ）就可以进行下一次练习。",
+    "options": { "A": "60—80次/分", "B": "80—100次/分", "C": "100—120次/分", "D": "90—110次/分" },
+    "answer": "C"
+  },
+  {
+    "id": 5,
+    "question": "青少年学生在进行耐力练习时，心跳和脉搏应维持在(  )为宜。",
+    "options": { "A": "120—160次/分", "B": "120—170次/分", "C": "130—160次/分", "D": "160—190分" },
+    "answer": "C"
+  },
+  {
+    "id": 6,
+    "question": "科学锻炼有益身心健康，那么我们每周至少参加(  )次，每次不少于(  )。",
+    "options": { "A": "3-4次，30分钟", "B": "3-4次，60分钟", "C": "1-3次，30分钟", "D": "1-3次，60分钟" },
+    "answer": "B"
+  },
+  {
+    "id": 7,
+    "question": "人体运动中的功能物质包括糖、脂肪和（    ）。",
+    "options": { "A": "维生素", "B": "微量元素", "C": "水", "D": "蛋白质" },
+    "answer": "D"
+  },
+  {
+    "id": 8,
+    "question": "在运动过程中，肌肉产生一种什么物质使你有酸痛的感觉（  ）",
+    "options": { "A": "乳酸", "B": "乳酸菌", "C": "蛋白蛋", "D": "ATP" },
+    "answer": "A"
+  },
+  {
+    "id": 9,
+    "question": "BMI（体重Kg、身高m）的计算公式是指（  ）",
+    "options": { "A": "体重/身高", "B": "身高的平方/体重", "C": "体重/身高的平方", "D": "身高/体重" },
+    "answer": "C"
+  },
+  {
+    "id": 10,
+    "question": "人体心率的增加有一定的限度，这个限度就叫最大心率。最大心率随年龄的增加逐渐下降，经常锻炼、心肺功能强的人最大心率较高。最大心率的推算公式为(  )：",
+    "options": { "A": "最大心率=220-年龄", "B": "最大心率=220-身高", "C": "最大心率=220-体重", "D": "最大心率=220*BIM" },
+    "answer": "A"
+  },
+  {
+    "id": 11,
+    "question": "人体长时间进行肌肉活动过程中克服疲劳的能力是指（ ）",
+    "options": { "A": "速度", "B": "力量", "C": "耐力", "D": "灵活" },
+    "answer": "C"
+  },
+  {
+    "id": 12,
+    "question": "长跑中出现的呼吸困难，胸闷、四肢无力，甚至不想再跑下去的现象叫（ ）。",
+    "options": { "A": "顶点", "B": "冰点", "C": "极点", "D": "盲点" },
+    "answer": "C"
+  },
+  {
+    "id": 13,
+    "question": "跑得快慢（速度）的最重要因素是（  ）",
+    "options": { "A": "身高、腿长", "B": "步长、步频", "C": "起跑迅速", "D": "冲刺技术好" },
+    "answer": "B"
+  },
+  {
+    "id": 14,
+    "question": "下列属于无氧运动的项目（  ）。",
+    "options": { "A": "举重", "B": "篮球", "C": "足球", "D": "慢跑" },
+    "answer": "A"
+  },
+  {
+    "id": 15,
+    "question": "被誉为'奥林匹克之父'的人是(  )。",
+    "options": { "A": "摩西", "B": "顾拜旦", "C": "洛克", "D": "萨马兰奇" },
+    "answer": "B"
+  },
+  {
+    "id": 16,
+    "question": "中国于2008年举办第（  ）届奥运会。",
+    "options": { "A": "28", "B": "27", "C": "29", "D": "25" },
+    "answer": "C"
+  },
+  {
+    "id": 17,
+    "question": "2020年夏季奥运会（已推迟）将在哪个城市举行（    ）。",
+    "options": { "A": "东京", "B": "北京", "C": "首尔", "D": "伦敦" },
+    "answer": "A"
+  },
+  {
+    "id": 18,
+    "question": "1952年，毛泽东主席为新中国体育的题词是（  ）。",
+    "options": { "A": "野蛮其体魄，文明其精神", "B": "团结.友爱.互助", "C": "发展体育运动，增强人民体质", "D": "更快.更高.更强" },
+    "answer": "C"
+  },
+  {
+    "id": 19,
+    "question": "2008年8月15日，花都区运动员（  ）在北京奥运会跳马整套动作完美无缺，获16.725分。最后荣获女子体操团体金牌、女子全能铜牌、高低杠铜牌 。",
+    "options": { "A": "邓琳琳", "B": "杨伊琳", "C": "江钰源", "D": "程菲" },
+    "answer": "B"
+  },
+  {
+    "id": 20,
+    "question": "中国古代教育中的六艺（礼、乐、射、御、书、数）属于体育范畴的是（   ）。",
+    "options": { "A": "礼、乐", "B": "乐、射", "C": "射、御", "D": "御、数" },
+    "answer": "C"
+  },
+  {
+    "id": 21,
+    "question": "中国的国球是（  ）",
+    "options": { "A": "篮球", "B": "足球", "C": "乒乓球", "D": "羽毛球" },
+    "answer": "C"
+  },
+  {
+    "id": 22,
+    "question": "内练一口气，外练筋骨皮这一句话是描述哪一项运动的（）。",
+    "options": { "A": "球类运动", "B": "武术类运动", "C": "体操运动", "D": "游泳运动" },
+    "answer": "B"
+  },
+  {
+    "id": 23,
+    "question": "体育从原始社会到现代工业社会，始终伴随着人类一道发展。它的发展属于一种（  ）的变迁。",
+    "options": { "A": "观念和行为", "B": "生存和发展", "C": "精神和文化生活", "D": "社会行为和文化生活" },
+    "answer": "D"
+  },
+  {
+    "id": 24,
+    "question": "教育部规定，学生每天平均应有的体育锻炼时间是(   )",
+    "options": { "A": "30分钟", "B": "40分钟", "C": "50分钟", "D": "60分钟" },
+    "answer": "D"
+  },
+  {
+    "id": 25,
+    "question": "学校体育是指通过体育课教学、（  ）和训练以及运动竞赛等形式来增强学生体质、促进身心健康与智力发展、培养良好的道德品质与个性特征的教育过程。",
+    "options": { "A": "早操", "B": "课间操", "C": "课外体育锻炼", "D": "比赛" },
+    "answer": "C"
+  },
+  {
+    "id": 26,
+    "question": "广州市体育中考选择项目中，(  )素质对三级蛙跳和立定跳远两个项目影响较突出。",
+    "options": { "A": "力量", "B": "速度", "C": "灵敏", "D": "柔韧" },
+    "answer": "A"
+  },
+  {
+    "id": 27,
+    "question": "体育活动中帮助与保护的实践过程有助于(   )的形成。",
+    "options": { "A": "社会优越感", "B": "社会荣誉感", "C": "社会责任感", "D": "社会幸福感" },
+    "answer": "C"
+  },
+  {
+    "id": 28,
+    "question": "以下属于田赛项目的是（  ）",
+    "options": { "A": "跳跃和投掷", "B": "跳跃和竞走", "C": "投掷和短跑", "D": "长跑和短跑" },
+    "answer": "A"
+  },
+  {
+    "id": 29,
+    "question": "行进间单手肩上投篮又称'三步上篮'，是在行进间接球或运球后做近距离投篮时所采用的一种方法。'三步'的动作特点是（   ）。",
+    "options": { "A": "一大、二小、三高", "B": "一大、二大、三高", "C": "一小、二大、三快", "D": "一小、二小、三快" },
+    "answer": "A"
+  },
+  {
+    "id": 30,
+    "question": "下列关于三级蛙跳，说法不正确的是（   ）",
+    "options": {
+      "A": "第一跳、第二跳身体重心的腾空轨迹比较平。保证有一定远度的基础上减少水平速度的损耗",
+      "B": "第三跳，经过前两次起跳之后，水平速度有明显下降，因此，在第三跳中，要充分利用剩余的水平速度，尽可能提高垂直速度，以获得一个较高、较远的腾空轨迹，取得第三跳的远度",
+      "C": "为了不影响水平速度，前两跳每次落地都采用前脚掌落地，方便迅速向前移动",
+      "D": "最后一跳落地前收腹同时双腿尽量前伸"
+    },
+    "answer": "C"
+  },
+  {
+    "id": 31,
+    "question": "关于正脚背颠球技术，下列说法不正确的是（   ）",
+    "options": {
+      "A": "颠球时眼睛注视运球方向，两臂自然伸开保持平衡",
+      "B": "颠球脚大腿带动小腿，以膝关节为轴弹踢球的中下部",
+      "C": "脚背触球时，脚踝要适当用力且固定",
+      "D": "为了保证下一次颠球有足够的时间，把球尽量颠起来超下半身"
+    },
+    "answer": "D"
+  },
+  {
+    "id": 32,
+    "question": "剧烈运动后，下列做法正确的是（  ）。",
+    "options": {
+      "A": "立即停止活动，进行休息",
+      "B": "马上沐浴，消除运动产生的热量",
+      "C": "递减运动强度，逐渐结束运动",
+      "D": "马上补充水分和食物，减少运动消耗"
+    },
+    "answer": "C"
+  },
+  {
+    "id": 33,
+    "question": "关于脚内侧接地滚球技术，说法正确的是（   ） ○1支撑脚脚尖上对来球，膝关节徽屈，同侧肩正对来球 ○2接球腿提膝大腿外展，脚尖微翘，脚底基本与地面平行，脚内侧正对来球并前迎，当脚内侧与球接触的一刹那迅速后撤，把球接在脚下 ○3若需将球接在侧面时，支撑脚脚尖应向同侧斜指，脚内侧与来球方向成一定角度触球，同时支撑脚提蹱，以前脚掌为轴做适当转动，身体移动 ○4当来球力量不大时，只需将脚提到一定的高度，并使脚内侧与地面形成锐角轻触球。也可在触球时用下切动作使球前进之力部分转变为旋转力，而将球接在脚下。",
+    "options": { "A": "○1○3", "B": "○2○4", "C": "○1○2○4", "D": "○1○2○3○4" },
+    "answer": "D"
+  },
+  {
+    "id": 34,
+    "question": "交换防守配合是为了破坏进攻队员之间的（   ）配合。",
+    "options": { "A": "传切", "B": "突飞", "C": "掩护", "D": "策应" },
+    "answer": "C"
+  },
+  {
+    "id": 35,
+    "question": "关于篮球三步上篮说法正确的是（以右手持球三步上篮为例）（   ） ○1站在离篮框约3、4米的前方稍偏右处开始练习，用右手单手朝篮框方向运球向前 ○2最后一步用左脚踏出（并准备起跳） ○3跨最后一步时，用双手抱球（左手在球前方，右手在球后方并靠近球底部） ○4左脚发力起跳，眼睛保持在篮框附近你要将球送至的方向 ○5左手离开球，右臂单手持球向上完全伸展，并在弹跳至最高点时，靠手腕发力（称'挑篮'）将球送出",
+    "options": { "A": "○1○3○5", "B": "○2○3○4", "C": "○1○2○4○5", "D": "○1○2○3○4○5" },
+    "answer": "D"
+  },
+  {
+    "id": 36,
+    "question": "小红练习了双手投篮动作，有下列体会，你觉得正确的是（   ） ○1从脚底发力，力量是从脚前掌发起，然后通过脚踝、膝盖、胯部、上体、手臂、手腕，最后力量传递至手指尖将篮球投出。力量的整个传递应该是一个连贯协调的过程。 ○2手臂姿势，应该是上臂与前臂呈90度，而手腕后伸也与前臂呈近90度，并与上臂平行 ○3手指持球的后、下部 ○4投篮时，向上、向前伸臂(当然是指向篮框)，向上、向前用力屈手腕，最后用手指将球推出，这样投篮会使篮球产生下旋，碰到篮板或篮框不会产生很大的反弹",
+    "options": { "A": "○1○3", "B": "○1○2○3○4", "C": "○1○2○4", "D": "○2○4" },
+    "answer": "B"
+  },
+  {
+    "id": 37,
+    "question": "有8个篮球队参加单淘汰赛，共有(   )场比赛",
+    "options": { "A": "8", "B": "7", "C": "6", "D": "5" },
+    "answer": "B"
+  },
+  {
+    "id": 38,
+    "question": "篮球比赛中，违反时间规则的有(   )。",
+    "options": { "A": "3秒.5秒.10秒.30秒", "B": "3秒.5秒.7秒.24秒", "C": "3秒.5秒.8秒.24秒", "D": "3秒.5秒.8秒.30秒" },
+    "answer": "C"
+  },
+  {
+    "id": 39,
+    "question": "下列哪个不属于羽毛球发球违例(  ).",
+    "options": { "A": "过手", "B": "过腰", "C": "触网", "D": "踩线" },
+    "answer": "C"
+  },
+  {
+    "id": 40,
+    "question": "足球比赛时，当球碰到球门柱及角旗弹回场内,则比赛应该怎样（   ）",
+    "options": { "A": "继续", "B": "停止", "C": "出界", "D": "判罚球门球" },
+    "answer": "A"
+  },
+  {
+    "id": 41,
+    "question": "排球比赛场上6名队员分前后排站立，获得发球权的队，6名队员必须按（    ）方向轮转一个位置?",
+    "options": { "A": "逆时针", "B": "顺时针", "C": "任意", "D": "前后" },
+    "answer": "B"
+  },
+  {
+    "id": 42,
+    "question": "在排球比赛中，前排队员，其位置包括（  ）",
+    "options": { "A": "1号位，2号位，3号位", "B": "2号位，3号位，4号位", "C": "3号位，4号位，5号位", "D": "1号位，5号位，6号位" },
+    "answer": "B"
+  },
+  {
+    "id": 43,
+    "question": "乒乓球产生旋转的原因（  ）",
+    "options": { "A": "合力不经过球心", "B": "合力经过球心", "C": "作用力经过球心", "D": "作用力不经过球心" },
+    "answer": "A"
+  },
+  {
+    "id": 44,
+    "question": "乒乓球比赛开始，运动员将球抛起后,拍面未击到球，应判（  ）。",
+    "options": { "A": "重发球", "B": "失一分", "C": "警告", "D": "不判" },
+    "answer": "B"
+  },
+  {
+    "id": 45,
+    "question": "跳高比赛中如遇成绩相等，应首先看（  ）决出名次。",
+    "options": { "A": "全赛中失败次数多少", "B": "同一高度上失败次数多少", "C": "成绩相等高度上试跳次数多少", "D": "后三次失败次数" },
+    "answer": "A"
+  },
+  {
+    "id": 46,
+    "question": "分腿腾越山羊和跳箱练习时，踏跳应采用（    ）。",
+    "options": { "A": "双脚", "B": "单脚", "C": "跨越", "D": "跑步" },
+    "answer": "A"
+  },
+  {
+    "id": 47,
+    "question": "跨越式跳高一般采用斜线助跑起跳。小明参加校运会跳高比赛，他从右边开始助跑，应该用(  )起跳。",
+    "options": { "A": "左脚", "B": "右脚", "C": "两只脚都可以", "D": "双脚同时" },
+    "answer": "A"
+  },
+  {
+    "id": 48,
+    "question": "立定跳远测试中，一位同学左脚跟位于1.62米处，右脚跟位于1.58米处；若你作为本次测试老师会怎么做(  )。",
+    "options": { "A": "重新跳一次", "B": "犯规", "C": "判定成绩1.62米", "D": "判定成绩1.58米" },
+    "answer": "D"
+  },
+  {
+    "id": 49,
+    "question": "马拉松的全长是(     )",
+    "options": { "A": "42.195公里", "B": "41.195公里", "C": "20公里", "D": "50公里" },
+    "answer": "A"
+  },
+  {
+    "id": 50,
+    "question": "径赛项目中，判定运动员的终点名次，应以其（   ）任何部位抵达终点线后沿垂直面的顺序为准。",
+    "options": { "A": "头部", "B": "上肢", "C": "躯干", "D": "下肢" },
+    "answer": "C"
+  },
+  {
+    "id": 51,
+    "question": "足球场地上所划的'线'和'点'，序号1-5所指示的'线'或'点'分别是（   ）",
+    "options": { "A": "球门区（小禁区）线、罚球区（大禁区）线、罚球点、罚球弧、中圈线", "B": "罚球区（大禁区）线、球门区（小禁区）线、罚球点、罚球弧、中圈线", "C": "球门区（小禁区）线、罚球区（大禁区）线、罚球点、中圈线、罚球弧", "D": "中圈线、罚球区（大禁区）线、罚球点、罚球弧、球门区（小禁区）线" },
+    "answer": "A"
+  },
+  {
+    "id": 52,
+    "question": "下面关于足球比赛越位规则，说法错误的是（   ）",
+    "options": { "A": "越位只可能发生在对方半场，本方半场不存在越位", "B": "如果球传球时，接球人在球的后方，则不存在越位", "C": "接球人在接球的一刹那，身后无防守队员（守门员除外），则越位（特殊情况除外）", "D": "球在向前传出的一刹那，进攻方接球人身后无防守队员（守门员除外），则越位（特殊情况除外）" },
+    "answer": "C"
+  },
+  {
+    "id": 53,
+    "question": "篮球队员运球结束时采用跨步急停，此时应以（   ）为中枢脚。",
+    "options": { "A": "任何一脚", "B": "先落地脚", "C": "后落地脚", "D": "两脚同时" },
+    "answer": "B"
+  },
+  {
+    "id": 54,
+    "question": "弯道跑时,身体应向(  )倾斜。",
+    "options": { "A": "外", "B": "内", "C": "前", "D": "后" },
+    "answer": "B"
+  },
+  {
+    "id": 55,
+    "question": "小敏的800米成绩很差，老师给提供了三个锻炼项目，你认为最合适的是(  )",
+    "options": { "A": "跑步、跳绳、游泳", "B": "篮球、跳远、俯卧撑", "C": "羽毛球、乒乓球、跳绳", "D": "引体向上、伸展运动、游泳" },
+    "answer": "A"
+  },
+  {
+    "id": 56,
+    "question": "头手倒立用身体的(  )部位支撑。",
+    "options": { "A": "两手与头", "B": "两手与前额", "C": "两手与肩", "D": "两手、头后部与肩" },
+    "answer": "B"
+  },
+  {
+    "id": 57,
+    "question": "由一名守门员、四名后卫、三名前卫和三名前锋组成的阵形称为（  ）。",
+    "options": { "A": "'四三三'", "B": "'三三四'", "C": "'一四三三'", "D": "'一二三四'" },
+    "answer": "A"
+  },
+  {
+    "id": 58,
+    "question": "在足球运动中头顶球的力量主要来源于（）的力量。",
+    "options": { "A": "头", "B": "摆动", "C": "腿部肌肉", "D": "手臂" },
+    "answer": "B"
+  },
+  {
+    "id": 59,
+    "question": "排球传球时主要靠（ ）控制球的方向。",
+    "options": { "A": "拇指与中指", "B": "中指、食指与拇指", "C": "中指与食指", "D": "无名指与小指" },
+    "answer": "B"
+  },
+  {
+    "id": 60,
+    "question": "投篮是靠（）最后集中到手腕，手指上将球投出。",
+    "options": { "A": "由下至上的协调用力", "B": "手臂力量", "C": "腰腹力量", "D": "蹬地力量" },
+    "answer": "A"
+  },
+  {
+    "id": 61,
+    "question": "短跑的脚掌着地动作应用（ ）落地。",
+    "options": { "A": "全脚掌", "B": "脚跟", "C": "前脚掌", "D": "前脚掌或全脚掌" },
+    "answer": "C"
+  },
+  {
+    "id": 62,
+    "question": "决定投掷项目成绩的主要因素是（ ）。",
+    "options": { "A": "身高", "B": "出手角度和初速度", "C": "用力时间", "D": "场地" },
+    "answer": "B"
+  },
+  {
+    "id": 63,
+    "question": "篮球传球时，五指张开手指手腕后仰微屈成半球形，以(  )",
+    "options": { "A": "拇指食指负担球的压力，无名指和小指帮助控制", "B": "食指中指负担球的压力", "C": "食指中指负担球的压力，无名指小指帮助控制", "D": "拇指食指中指负担球的压力，无名指和小指帮助控制" },
+    "answer": "D"
+  },
+  {
+    "id": 64,
+    "question": "下面关于力量性训练的说法错误的是（   ）",
+    "options": { "A": "力量性训练也叫抗阻训练，指特定肌肉群参与、对抗一定阻力的重复用力过程", "B": "力量性训练的阻力负荷可以采用哑铃、水瓶、沙袋、弹力带等健身器械，也可以是肢体和躯干自身的重量", "C": "力量性训练的负荷是用心率来衡量", "D": "青少年的力量性训练一般采用轻负荷或自身重力进行" },
+    "answer": "C"
+  },
+  {
+    "id": 65,
+    "question": "我们的身体每个部位都有自己专有的'名字'，请按照序号1-9的顺序说出相对应身体部位的名称（   ）",
+    "options": { "A": "大臂、手腕、膝盖、小腿、脚踝、背、肘、大腿、脚掌", "B": "手腕、膝盖、大臂、小腿、脚踝、背、肘、大腿、脚掌", "C": "大腿、大臂、手腕、膝盖、小腿、背、肘、脚掌、脚踝", "D": "大腿、大臂、手腕、肘、小腿、脚踝、背、膝盖、脚掌" },
+    "answer": "A"
+  },
+  {
+    "id": 66,
+    "question": "小明平时学业任务很重，缺乏锻炼，一天偶尔和同学打了一场篮球，第二天觉得浑身酸痛，对于这种酸痛，认识错误的是（   ）",
+    "options": { "A": "运动后有肌肉酸痛，可能是运动过度的原因", "B": "这是运动后的自然反应，只要坚持锻炼，酸痛就会逐渐消失", "C": "一旦肌肉酸痛应该停止继续运动，等到肌肉消失后再进行锻炼", "D": "运动后进行肌肉的静态拉伸，能缓解第二天的肌肉酸痛" },
+    "answer": "C"
+  },
+  {
+    "id": 67,
+    "question": "以下提高耐力的有效方法是（  ）",
+    "options": { "A": "反复立定跳远练习", "B": "进行俯卧撑练习", "C": "负重越野跑", "D": "做仰卧起坐" },
+    "answer": "C"
+  },
+  {
+    "id": 68,
+    "question": "踢腿、下叉、体前屈、压肩运动可以发展人的(    )素质",
+    "options": { "A": "力量", "B": "速度", "C": "柔韧", "D": "灵敏" },
+    "answer": "C"
+  },
+  {
+    "id": 69,
+    "question": "俯卧撑主要锻炼哪块肌肉（    ）",
+    "options": { "A": "肱三头肌", "B": "三角肌", "C": "肱二头肌", "D": "前锯肌" },
+    "answer": "A"
+  },
+  {
+    "id": 70,
+    "question": "为了发展学生的身体素质和跑的能力，下列一组辅助练习中用于增强腿部力量，提高大腿高抬幅度，发展跑的频率的练习是 （   ）",
+    "options": { "A": "后蹬跑", "B": "单足跳", "C": "弓箭步走", "D": "高抬腿跑" },
+    "answer": "D"
+  },
+  {
+    "id": 71,
+    "question": "卧撑、立卧撑、跳台阶、蛙跳运动可以发展人的（   ）素质。",
+    "options": { "A": "力量", "B": "速度", "C": "柔韧", "D": "灵敏" },
+    "answer": "A"
+  },
+  {
+    "id": 72,
+    "question": "某个人进行100米比赛时，假设平均步长2米，平均步频4步/秒，则他100米跑的速度为（   ）。",
+    "options": { "A": "12秒40", "B": "12秒45", "C": "12秒50", "D": "12秒60" },
+    "answer": "C"
+  },
+  {
+    "id": 73,
+    "question": "疾跑后不能立即站立不动，需继续慢跑，主要是因为（  ）。",
+    "options": { "A": "防止低血糖的发生", "B": "有利于氧债的偿还", "C": "有利于心功能的恢复", "D": "防止重力性休克的发生" },
+    "answer": "D"
+  },
+  {
+    "id": 74,
+    "question": "快速跑中'坐着跑'是学生常犯的错误之一，其主要原因是（  ）",
+    "options": { "A": "概念不清楚", "B": "腿部力量不够", "C": "后蹬不充分", "D": "手臂摆动不充分" },
+    "answer": "C"
+  },
+  {
+    "id": 75,
+    "question": "足球颠球是熟悉球性、提高控球能力的一种方法，颠球的部位一般有（  ）。",
+    "options": { "A": "5个", "B": "8个", "C": "10个", "D": "12个" },
+    "answer": "D"
+  },
+  {
+    "id": 76,
+    "question": "合理的击打羽毛球高远球的击球点应在(  )",
+    "options": { "A": "肩的正后方", "B": "肩的前上方", "C": "肩的正上方", "D": "以上都可以" },
+    "answer": "C"
+  },
+  {
+    "id": 77,
+    "question": "下列哪个不是肌肉耐力的训练方法(  )",
+    "options": { "A": "只能举一次50千克重物的力量练习", "B": "利用10千克的重物进行30次的重复练习", "C": "每天坚持进行引体向上的身体练习的学生", "D": "每天进行仰卧起坐的身体练习" },
+    "answer": "A"
+  },
+  {
+    "id": 78,
+    "question": "发展一般耐力主要采用(  )的各种运动方式",
+    "options": { "A": "短时间 大强度", "B": "短时间小强度", "C": "长时间中小强度", "D": "长时间大强度" },
+    "answer": "C"
+  },
+  {
+    "id": 79,
+    "question": "柔韧性训练的基本方法是(  )",
+    "options": { "A": "重复训练法", "B": "间歇训练法", "C": "拉伸法", "D": "变换训练法" },
+    "answer": "C"
+  },
+  {
+    "id": 80,
+    "question": "短跑包括(  )",
+    "options": { "A": "起跑 加速跑 途中跑 冲刺跑", "B": "起跑 加速跑 放松跑 冲刺跑", "C": "起跑 变速跑 途中跑 冲刺跑", "D": "起跑 放松跑 加速跑 冲刺跑" },
+    "answer": "A"
+  },
+  {
+    "id": 81,
+    "question": "游泳时人体需要克服的阻力比在陆地上运动要大(  )倍",
+    "options": { "A": "800", "B": "80", "C": "8", "D": "18" },
+    "answer": "A"
+  },
+  {
+    "id": 82,
+    "question": "体育运动是对机体产生适当刺激，每次刺激都能产生一定的作用痕迹，这种痕迹积累使机体结构和机能达到新的适应，以不断增强（ ）。",
+    "options": { "A": "健康", "B": "体能", "C": "体质", "D": "机能" },
+    "answer": "C"
+  },
+  {
+    "id": 83,
+    "question": "打篮球时，不小心脚踝扭伤且出现肿胀，而并未出血，这种情况应立即(  )。",
+    "options": { "A": "不予理睬", "B": "进行热敷", "C": "进行冷敷", "D": "进行揉搓" },
+    "answer": "C"
+  },
+  {
+    "id": 84,
+    "question": "游泳时不慎溺水，救上岸后哪项处理最关健(  )",
+    "options": { "A": "保持呼吸道通畅，进行人工呼吸和胸外心脏按压", "B": "打120电话", "C": "检查溺水者有无外伤", "D": "及时送医院" },
+    "answer": "A"
+  },
+  {
+    "id": 85,
+    "question": "下列关于运动中腹痛处理方法错误的是(   )",
+    "options": { "A": "停止运动喝水", "B": "处理不佳即送往医院", "C": "适当减慢运动速度，调整呼吸", "D": "用手压按压疼痛部位，弯腰慢跑一段" },
+    "answer": "A"
+  },
+  {
+    "id": 86,
+    "question": "2020年疫情下，许多同学都是待在家里自行锻炼。小明同学想了解自己运动是否达到标准，那么请问用(  )是检测运动负荷最简便的方法。",
+    "options": { "A": "呼吸", "B": "感觉", "C": "口述", "D": "测定脉搏" },
+    "answer": "D"
+  },
+  {
+    "id": 87,
+    "question": "小明早上体育课时因低血糖症导致晕倒最有可能是什么造成的（ ）",
+    "options": { "A": "缺钠", "B": "缺碘", "C": "没做准备运动", "D": "没吃早餐" },
+    "answer": "D"
+  },
+  {
+    "id": 88,
+    "question": "以下哪些为常见的运动性疾病（  ）",
+    "options": { "A": "肌肉痉挛、运动性中暑、运动性腹痛", "B": "过度疲劳、踝关节扭伤", "C": "运动性贫血、骨折", "D": "运动性晕厥、溺水" },
+    "answer": "A"
+  },
+  {
+    "id": 89,
+    "question": "肌肉痉挛处理最为有效的方法是（  ）。",
+    "options": { "A": "按摩", "B": "点穴", "C": "持续性牵拉痉挛肌肉", "D": "间歇性牵拉痉挛肌肉" },
+    "answer": "C"
+  },
+  {
+    "id": 90,
+    "question": "一学生晚餐后与同学打篮球，运动中突感脐周阵发性绞痛，此时应考虑（  ）。",
+    "options": { "A": "肝脾淤血", "B": "胃痉挛", "C": "肠痉挛", "D": "肾结石" },
+    "answer": "C"
+  },
+  {
+    "id": 91,
+    "question": "学生在做侧'压腿'练习时，突然用力过度，可造成（  ）。",
+    "options": { "A": "大腿内侧肌肉被动拉伤", "B": "大腿内收肌群主动拉伤", "C": "股四头肌被动拉伤", "D": "臀肌被动拉伤" },
+    "answer": "A"
+  },
+  {
+    "id": 92,
+    "question": "夏季在烈日下剧烈运动出汗过多时，为预防中暑应多喝（    ）。",
+    "options": { "A": "糖水", "B": "淡盐水", "C": "白开水", "D": "苏打水" },
+    "answer": "B"
+  },
+  {
+    "id": 93,
+    "question": "100克蒸土豆提供的能量为293千焦，同样重量的土豆炸成薯条后重量为50克，提供的能量是628千焦。慢跑时每千克体重每分钟消耗的能量是0.481千焦。小明体重50公斤，选择吃50克炸薯条比吃100克蒸土豆需要慢跑多长时间才不会增加额外的体重？（  ）",
+    "options": { "A": "10分钟", "B": "12分钟", "C": "14分钟", "D": "16分钟" },
+    "answer": "C"
+  },
+  {
+    "id": 94,
+    "question": "下列关于各类身体素质的增长速度快慢顺序正确的是（   ）",
+    "options": { "A": "速度、灵巧、柔韧素质发展较早，其次是一般耐力和力量，速度耐力和力量耐力发展较晚", "B": "速、灵巧、柔韧素质发展较早，其次是速度耐力和力量耐力，一般耐力和力量发展较晚", "C": "速度耐力和力量耐力发展较早，其次是一般耐力和力量，速度、灵巧、柔韧素质发展较晚", "D": "一般耐力和力量发展较早，其次是速度、灵巧、柔韧素质，速度耐力和力量耐力发展较晚" },
+    "answer": "A"
+  },
+  {
+    "id": 95,
+    "question": "由高处跳下时，应用（）部位着地，同时屈膝缓冲。",
+    "options": { "A": "膝关节", "B": "前脚掌", "C": "后脚跟", "D": "全脚掌" },
+    "answer": "B"
+  },
+  {
+    "id": 96,
+    "question": "截至目前，世界卫生组织（WHO）对新型冠状病毒的命名是(  )",
+    "options": { "A": "SARS-CoV", "B": "MERS-CoV", "C": "COVID-19", "D": "SARI" },
+    "answer": "C"
+  },
+  {
+    "id": 97,
+    "question": "已知的新型冠状病毒的传播途径中不包括(  )",
+    "options": { "A": "气溶胶传播", "B": "血液传播", "C": "接触传播", "D": "飞沫传播" },
+    "answer": "B"
+  },
+  {
+    "id": 98,
+    "question": "新型冠状病毒感染的肺炎属于（  ）传染病。",
+    "options": { "A": "甲类", "B": "乙类", "C": "丙类", "D": "其它类" },
+    "answer": "B"
+  },
+  {
+    "id": 99,
+    "question": "以下哪种口罩不适合预防新冠病毒肺炎使用（ ）。",
+    "options": { "A": "棉质口罩", "B": "一次性医用口罩", "C": "医用外科口罩", "D": "N95防护口罩" },
+    "answer": "A"
+  },
+  {
+    "id": 100,
+    "question": "下列关于如何正确佩戴口罩的做法，你认为正确的是（   ） ○1口罩颜色深的是正面，正面应该朝外，而且医用口罩上还有鼻夹金属条。 ○2正对脸部的应该是医用口罩的反面，也就是颜色比较浅的一面，除此之外，要注意带有金属条的部分应该在口罩的上方，不要戴反了。 ○3分清楚口罩的正面、反面、上端、下端后，先将手洗干净，确定口罩是否正确之后，将两端的绳子挂在耳朵上。 ○4将口罩佩戴完毕后，需要用双手压紧鼻梁两侧的金属条，使口罩上端紧贴鼻梁，然后向下拉伸口罩，使口罩不留有褶皱，最好覆盖住鼻子和嘴巴。",
+    "options": { "A": "○1○3", "B": "○2○4", "C": "○1○2○4", "D": "○1○2○3○4" },
+    "answer": "D"
+  },
+  {
+    "id": 101,
+    "question": "2020年4月，习近平总书记在陕西安康市考察时讲话精神引用毛泽东同志《体育之研究》中的一句话是：（    ）。",
+    "options": { "A": "文明其精神 野蛮其体魄", "B": "团结.友爱.互助", "C": "发展体育运动，增强人民体质", "D": "更快.更高.更强" },
+    "answer": "A"
+  },
+  {
+    "id": 102,
+    "question": "中国第一个获得奥运会金牌的是（    ）",
+    "options": { "A": "刘国梁", "B": "李宁", "C": "郎平", "D": "许海峰" },
+    "answer": "D"
+  },
+  {
+    "id": 103,
+    "question": "饭后立即进行（   ），会抑制消化液分泌和消化管道的蠕动。",
+    "options": { "A": "放松运动", "B": "剧烈运动", "C": "拉伸运动", "D": "慢走运动" },
+    "answer": "B"
+  },
+  {
+    "id": 104,
+    "question": "中国飞人(  )在110米栏项目上曾多次创造奇迹。",
+    "options": { "A": "刘翔", "B": "孙海平", "C": "苏炳添", "D": "张培萌" },
+    "answer": "A"
+  },
+  {
+    "id": 105,
+    "question": "《国家学生体质健康标准》的评价指标是",
+    "options": { "A": "心理、生理、素质", "B": "形态 、机能、素质", "C": "身高、体重、肺活量", "D": "身高、心理、素质" },
+    "answer": "B"
+  }
+
+];
+
+</script>
+
+</body>
+</html>
